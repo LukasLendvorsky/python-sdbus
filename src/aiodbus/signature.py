@@ -9,6 +9,7 @@ from typing import (
     Protocol,
     Self,
     Sequence,
+    TypeAlias,
     assert_never,
     get_args,
     get_origin,
@@ -20,7 +21,7 @@ from aiodbus.basic_types import (
 )
 
 
-class DbusConvertible[T, D: DbusCompleteType](Protocol):
+class DbusConvertibleInstance[T, D: DbusCompleteType](Protocol):
     """
     Provides information on how to bridge some Python type to its D-Bus representation.
 
@@ -46,6 +47,20 @@ class DbusConvertible[T, D: DbusCompleteType](Protocol):
         Converts a D-Bus representation to a Python value.
         """
         ...
+
+
+class DbusConvertibleStatic[T, D: DbusCompleteType](Protocol):
+    """
+    Variant of `DbusConvertibleInstance` that satisfies object which has @staticmethod
+    """
+
+    signature: str
+
+    @staticmethod
+    def to_dbus(value: T) -> D: ...
+
+    @staticmethod
+    def from_dbus(value: D) -> T: ...
 
 
 class DbusNativeType:
@@ -89,6 +104,11 @@ class WithName:
         self.name = name
 
 
+DbusConvertible: TypeAlias = DbusConvertibleInstance | DbusConvertibleStatic
+"""Union of `DbusConvertibleInstance` (instance-method style) and `DbusConvertibleStatic`
+(static-method style). Use this as the type for anything that accepts either form."""
+
+
 class WithConversion:
     """
     Type annotation for specifying what `DbusConvertible` to use for a parameter or return type.
@@ -101,7 +121,7 @@ class WithConversion:
             ... (implement DbusConvertible methods/fields)
 
         @dbus_method
-        async def my_method(my_arg: Annotated[int, WithConversion(MyDbusConversion())]):
+        async def my_method(my_arg: Annotated[int, WithConversion(MyDbusConversion)]):
             ...
 
         ```
@@ -475,7 +495,6 @@ class ResultNativeTypeConversion:
 
 
 class MethodMapping:
-
     __slots__ = ("input_params", "input_conversion", "result_params", "result_conversion")
 
     def __init__(
